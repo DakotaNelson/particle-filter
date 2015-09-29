@@ -17,6 +17,7 @@ from tf.transformations import euler_from_quaternion, rotation_matrix, quaternio
 from random import gauss
 
 import math
+import random
 import time
 
 import numpy as np
@@ -43,7 +44,7 @@ class Particle(object):
             x: the x-coordinate of the hypothesis relative to the map frame
             y: the y-coordinate of the hypothesis relative ot the map frame
             theta: the yaw of the hypothesis relative to the map frame
-            w: the particle weight (the class does not ensure that particle weights are normalized """ 
+            w: the particle weight (the class does not ensure that particle weights are normalized """
         self.w = w
         self.theta = theta
         self.x = x
@@ -85,7 +86,7 @@ class ParticleFilter:
         self.base_frame = "base_link"   # the frame of the robot base
         self.map_frame = "map"          # the name of the map coordinate frame
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
-        self.scan_topic = "scan"        # the topic where we will get laser scans from 
+        self.scan_topic = "scan"        # the topic where we will get laser scans from
 
         self.n_particles = 300          # the number of particles to use
 
@@ -219,8 +220,21 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
+        nparticles = 1000
+        rad = 2 # meters
+
         self.particle_cloud = []
-        # TODO create particles
+        for i in range(nparticles-1):
+            theta = random.random() * 360
+
+            # compute params to generate x,y in a circle
+            other_theta = random.random() * 360
+            radius = random.random() * rad
+            # x => straight ahead
+            x = radius * math.sin(other_theta)
+            y = radius * math.cos(other_theta)
+            particle = Particle(x,y,theta)
+            self.particle_cloud.append(particle)
 
         self.normalize_particles()
         self.update_robot_pose()
@@ -290,7 +304,7 @@ class ParticleFilter:
         self.publish_particles(msg)
 
     def fix_map_to_odom_transform(self, msg):
-        """ This method constantly updates the offset of the map and 
+        """ This method constantly updates the offset of the map and
             odometry coordinate systems based on the latest results from
             the localizer """
         (translation, rotation) = convert_pose_inverse_transform(self.robot_pose)
