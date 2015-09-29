@@ -224,6 +224,7 @@ class ParticleFilter:
         rad = 2 # meters
 
         self.particle_cloud = []
+        self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
         for i in range(nparticles-1):
             theta = random.random() * 360
 
