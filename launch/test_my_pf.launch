@@ -1,0 +1,11 @@
+<launch>
+  <!-- Map server -->
+  <arg name="map_file"/>
+  <arg name="scan_topic" default="scan"/>
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
+
+  <!-- Localization -->
+  <node name="pf" pkg="my_pf" type="pf.py" output="screen">
+    <remap from="scan" to="$(arg scan_topic)"/>
+  </node>
+</launch>
