@@ -21,7 +21,7 @@ import random
 import time
 
 import numpy as np
-from numpy.random import random_sample
+from numpy.random import random_sample, normal
 from sklearn.neighbors import NearestNeighbors
 from occupancy_field import OccupancyField
 
@@ -157,7 +157,23 @@ class ParticleFilter:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
+        for particle in self.particle_cloud:
+            # difference in angle between robot and particle
+            delta_angle = particle.theta - self.current_odom_xy_theta[2]
+
+            # actual "have traveled" deltas
+            x = delta[0] + normal(0, .1)
+            y = delta[1] + normal(0, .1)
+            theta = delta[2] + normal(0, .1)
+            # TODO better randomness - scale?
+
+            pdelta = (math.cos(delta_angle) * x + math.sin(delta_angle) * y,
+                      math.sin(delta_angle) * x + math.cos(delta_angle) * y,
+                      theta)
+
+            particle.x += pdelta[0]
+            particle.y += pdelta[1]
+            particle.theta += pdelta[2]
         # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
 
     def map_calc_range(self,x,y,theta):
@@ -220,12 +236,13 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        nparticles = 1000
+        nparticles = 10
         rad = 2 # meters
 
         self.particle_cloud = []
         self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
         for i in range(nparticles-1):
+            # initial facing of the particle
             theta = random.random() * 360
 
             # compute params to generate x,y in a circle
