@@ -259,8 +259,9 @@ class ParticleFilter:
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        pass
-        # TODO: implement this
+        tot_weight = sum([particle.w for particle in self.particle_cloud])
+        for particle in self.particle_cloud:
+            particle.w = particle.w/tot_weight;
 
     def publish_particles(self, msg):
         particles_conv = []
