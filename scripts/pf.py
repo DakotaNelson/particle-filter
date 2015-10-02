@@ -95,6 +95,7 @@ class ParticleFilter:
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
+        self.sigma = 0.3                # guess for how inaccurate lidar readings are in meters
         # TODO: define additional constants if needed
 
         # Setup pubs and subs
@@ -192,8 +193,24 @@ class ParticleFilter:
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
-        # TODO: implement this
-        pass
+        for particle in self.particle_cloud:
+            tot_prob = 0
+            for index, scan in enumerate(msg.ranges):
+                x,y = self.transform_scan(particle,scan,index)
+                d = self.occupancy_field.get_closest_obstacle_distance(x,y)
+                tot_prob += exp((-d**2)/(2*self.sigma**2))
+            tot_prob = tot_prob/len(msg.ranges)
+            particle.w = tot_prob
+
+    def transform_scan(self, particle, distance, theta):
+        """ Calculates the x and y of a scan from a given particle
+        particle: Particle object
+        distance: scan distance (from ranges)
+        theta: scan angle (range index)
+        """
+        return (particle.x + distance * math.cos(math.radians(particle.theta + theta)),
+                particle.y + distance * math.sin(math.radians(particle.theta + theta)))
+
 
     @staticmethod
     def weighted_values(values, probabilities, size):
