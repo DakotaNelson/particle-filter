@@ -189,7 +189,19 @@ class ParticleFilter:
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+
+        newParticles = []
+        for i in range(len(self.particle_cloud)):
+            # resample the same # of particles
+            choice = random_sample()
+            # all the particle weights sum to 1
+            csum = 0 # cumulative sum
+            for particle in self.particle_cloud:
+                csum += particle.w
+                if csum >= choice:
+                    # if the random choice fell within the particle's weight
+                    newParticles.append(particle)
+        self.particles = newParticles
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
