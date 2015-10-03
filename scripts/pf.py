@@ -197,10 +197,16 @@ class ParticleFilter:
             tot_prob = 0
             for index, scan in enumerate(msg.ranges):
                 x,y = self.transform_scan(particle,scan,index)
+                # transform scan to view of the particle
                 d = self.occupancy_field.get_closest_obstacle_distance(x,y)
+                # calculate nearest distance to particle's scan (should be near 0 if it's on robot)
                 tot_prob += exp((-d**2)/(2*self.sigma**2))
+                # add probability (0 to 1) to total probability
+
             tot_prob = tot_prob/len(msg.ranges)
+            # normalize total probability back to 0-1
             particle.w = tot_prob
+            # assign particles weight
 
     def transform_scan(self, particle, distance, theta):
         """ Calculates the x and y of a scan from a given particle
