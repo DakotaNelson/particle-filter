@@ -158,7 +158,7 @@ class ParticleFilter:
             return
 
         for particle in self.particle_cloud:
-            # difference in angle between robot and particle
+            '''# difference in angle between robot and particle
             delta_angle = particle.theta - self.current_odom_xy_theta[2]
 
             # actual "have traveled" deltas
@@ -173,7 +173,15 @@ class ParticleFilter:
 
             particle.x += pdelta[0]
             particle.y += pdelta[1]
-            particle.theta += pdelta[2]
+            particle.theta += pdelta[2]'''
+
+            r1 = math.atan2(delta[1], delta[0]) - old_odom_xy_theta[2]
+            d = math.sqrt((delta[0]**2) + (delta[1]**2))
+
+            particle.theta += r1
+            particle.x += d * math.cos(particle.theta)
+            particle.y += d * math.sin(particle.theta)
+            particle.theta += delta[2] - r1
         # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
 
     def map_calc_range(self,x,y,theta):
@@ -212,7 +220,7 @@ class ParticleFilter:
                 # transform scan to view of the particle
                 d = self.occupancy_field.get_closest_obstacle_distance(x,y)
                 # calculate nearest distance to particle's scan (should be near 0 if it's on robot)
-                tot_prob += exp((-d**2)/(2*self.sigma**2))
+                tot_prob += math.exp((-d**2)/(2*self.sigma**2))
                 # add probability (0 to 1) to total probability
 
             tot_prob = tot_prob/len(msg.ranges)
