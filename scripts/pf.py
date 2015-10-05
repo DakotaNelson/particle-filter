@@ -4,10 +4,11 @@
 
 import rospy
 
-from std_msgs.msg import Header, String
+from std_msgs.msg import Header, String, ColorRGBA
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, PoseArray, Pose, Point, Quaternion
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped, PoseArray, Pose, Point, Quaternion, Vector3
 from nav_msgs.srv import GetMap
+from visualization_msgs.msg import Marker, MarkerArray
 from copy import deepcopy
 
 import tf
@@ -28,7 +29,7 @@ from occupancy_field import OccupancyField
 from helper_functions import (convert_pose_inverse_transform,
                               convert_translation_rotation_to_pose,
                               convert_pose_to_xy_and_theta,
-                              angle_diff)
+                              angle_diff,sum_vectors)
 
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
@@ -55,7 +56,6 @@ class Particle(object):
         orientation_tuple = tf.transformations.quaternion_from_euler(0,0,self.theta)
         return Pose(position=Point(x=self.x,y=self.y,z=0), orientation=Quaternion(x=orientation_tuple[0], y=orientation_tuple[1], z=orientation_tuple[2], w=orientation_tuple[3]))
 
-    # TODO: define additional helper functions if needed
 
 class ParticleFilter:
     """ The class that represents a Particle Filter ROS Node
@@ -95,8 +95,7 @@ class ParticleFilter:
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        self.sigma = 0.3                # guess for how inaccurate lidar readings are in meters
-        # TODO: define additional constants if needed
+        self.sigma = 0.05               # guess for how inaccurate lidar readings are in meters
 
         # Setup pubs and subs
 
@@ -104,6 +103,7 @@ class ParticleFilter:
         self.pose_listener = rospy.Subscriber("initialpose", PoseWithCovarianceStamped, self.update_initial_pose)
         # publish the current particle cloud.  This enables viewing particles in rviz.
         self.particle_pub = rospy.Publisher("particlecloud", PoseArray, queue_size=10)
+        self.marker_pub = rospy.Publisher("markers", MarkerArray, queue_size=10)
 
         # laser_subscriber listens for data from the lidar
         self.laser_subscriber = rospy.Subscriber(self.scan_topic, LaserScan, self.scan_received)
@@ -125,16 +125,24 @@ class ParticleFilter:
 
     def update_robot_pose(self):
         """ Update the estimate of the robot's pose given the updated particles.
-            There are two logical methods for this:
-                (1): compute the mean pose
-                (2): compute the most likely pose (i.e. the mode of the distribution)
+            Computed by taking the weighted average of poses.
         """
         # first make sure that the particle weights are normalized
         self.normalize_particles()
 
-        # TODO: assign the lastest pose into self.robot_pose as a geometry_msgs.Pose object
-        # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
+        x = 0
+        y = 0
+        theta = 0
+        angles = []
+        for particle in self.particle_cloud:
+            print particle.w
+            x += particle.x * particle.w
+            y += particle.y * particle.w
+            v = [particle.w * math.cos(math.radians(particle.theta)), particle.w * math.sin(math.radians(particle.theta))]
+            angles.append(v)
+        theta = sum_vectors(angles)
+        orientation_tuple = tf.transformations.quaternion_from_euler(0,0,theta)
+        self.robot_pose = Pose(position=Point(x=x,y=y),orientation=Quaternion(x=orientation_tuple[0], y=orientation_tuple[1], z=orientation_tuple[2], w=orientation_tuple[3]))
 
     def update_particles_with_odom(self, msg):
         """ Update the particles using the newly given odometry pose.
@@ -162,9 +170,9 @@ class ParticleFilter:
             delta_angle = particle.theta - self.current_odom_xy_theta[2]
 
             # actual "have traveled" deltas
-            x = delta[0] + normal(0, .1)
-            y = delta[1] + normal(0, .1)
-            theta = delta[2] + normal(0, .1)
+            x = delta[0] + normal(0, .01)
+            y = delta[1] + normal(0, .01)
+            theta = delta[2] + normal(0, .01)
             # TODO better randomness - scale?
 
             pdelta = (math.cos(delta_angle) * x + math.sin(delta_angle) * y,
@@ -178,7 +186,6 @@ class ParticleFilter:
 
     def map_calc_range(self,x,y,theta):
         """ Difficulty Level 3: implement a ray tracing likelihood model... Let me know if you are interested """
-        # TODO: nothing unless you want to try this alternate likelihood model
         pass
 
     def resample_particles(self):
@@ -200,7 +207,7 @@ class ParticleFilter:
                 csum += particle.w
                 if csum >= choice:
                     # if the random choice fell within the particle's weight
-                    newParticles.append(particle)
+                    newParticles.append(deepcopy(particle))
         self.particles = newParticles
 
     def update_particles_with_laser(self, msg):
@@ -212,7 +219,7 @@ class ParticleFilter:
                 # transform scan to view of the particle
                 d = self.occupancy_field.get_closest_obstacle_distance(x,y)
                 # calculate nearest distance to particle's scan (should be near 0 if it's on robot)
-                tot_prob += exp((-d**2)/(2*self.sigma**2))
+                tot_prob += math.exp((-d**2)/(2*self.sigma**2))
                 # add probability (0 to 1) to total probability
 
             tot_prob = tot_prob/len(msg.ranges)
@@ -270,12 +277,11 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        nparticles = 10
         rad = 2 # meters
 
         self.particle_cloud = []
         self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
-        for i in range(nparticles-1):
+        for i in range(self.n_particles-1):
             # initial facing of the particle
             theta = random.random() * 360
 
@@ -283,8 +289,8 @@ class ParticleFilter:
             other_theta = random.random() * 360
             radius = random.random() * rad
             # x => straight ahead
-            x = radius * math.sin(other_theta)
-            y = radius * math.cos(other_theta)
+            x = radius * math.sin(other_theta) + xy_theta[0]
+            y = radius * math.cos(other_theta) + xy_theta[1]
             particle = Particle(x,y,theta)
             self.particle_cloud.append(particle)
 
@@ -305,6 +311,19 @@ class ParticleFilter:
         self.particle_pub.publish(PoseArray(header=Header(stamp=rospy.Time.now(),
                                             frame_id=self.map_frame),
                                   poses=particles_conv))
+
+        marker_array = []
+        for index, particle in enumerate(self.particle_cloud):
+            marker = Marker(header=Header(stamp=rospy.Time.now(),
+                                          frame_id=self.map_frame),
+                                  pose=particle.as_pose(),
+                                  type=0,
+                                  scale=Vector3(x=particle.w*10,y=particle.w*5,z=particle.w*20),
+                                  id=index,
+                                  color=ColorRGBA(r=1,a=1))
+            marker_array.append(marker)
+
+        self.marker_pub.publish(MarkerArray(markers=marker_array))
 
     def scan_received(self, msg):
         """ This is the default logic for what to do when processing scan data.
