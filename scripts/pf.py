@@ -166,22 +166,13 @@ class ParticleFilter:
             return
 
         for particle in self.particle_cloud:
-            # difference in angle between robot and particle
-            delta_angle = particle.theta - self.current_odom_xy_theta[2]
+            r1 = math.atan2(delta[1], delta[0]) - old_odom_xy_theta[2]
+            d = math.sqrt((delta[0]**2) + (delta[1]**2))
 
-            # actual "have traveled" deltas
-            x = delta[0] + normal(0, .01)
-            y = delta[1] + normal(0, .01)
-            theta = delta[2] + normal(0, .01)
-            # TODO better randomness - scale?
-
-            pdelta = (math.cos(delta_angle) * x + math.sin(delta_angle) * y,
-                      math.sin(delta_angle) * x + math.cos(delta_angle) * y,
-                      theta)
-
-            particle.x += pdelta[0]
-            particle.y += pdelta[1]
-            particle.theta += pdelta[2]
+            particle.theta += r1 % 360
+            particle.x += d * math.cos(particle.theta) + normal(0,0.01)
+            particle.y += d * math.sin(particle.theta) + normal(0,0.01)
+            particle.theta += (delta[2] - r1 + normal(0,0.01)) % 360
         # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
 
     def map_calc_range(self,x,y,theta):
