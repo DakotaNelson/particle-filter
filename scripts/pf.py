@@ -158,23 +158,6 @@ class ParticleFilter:
             return
 
         for particle in self.particle_cloud:
-            '''# difference in angle between robot and particle
-            delta_angle = particle.theta - self.current_odom_xy_theta[2]
-
-            # actual "have traveled" deltas
-            x = delta[0] + normal(0, .1)
-            y = delta[1] + normal(0, .1)
-            theta = delta[2] + normal(0, .1)
-            # TODO better randomness - scale?
-
-            pdelta = (math.cos(delta_angle) * x + math.sin(delta_angle) * y,
-                      math.sin(delta_angle) * x + math.cos(delta_angle) * y,
-                      theta)
-
-            particle.x += pdelta[0]
-            particle.y += pdelta[1]
-            particle.theta += pdelta[2]'''
-
             r1 = math.atan2(delta[1], delta[0]) - old_odom_xy_theta[2]
             d = math.sqrt((delta[0]**2) + (delta[1]**2))
 
