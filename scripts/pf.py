@@ -86,16 +86,16 @@ class ParticleFilter:
         self.base_frame = "base_link"   # the frame of the robot base
         self.map_frame = "map"          # the name of the map coordinate frame
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
-        self.scan_topic = "scan"        # the topic where we will get laser scans from
+        self.scan_topic = "base_scan"        # the topic where we will get laser scans from
 
-        self.n_particles = 300          # the number of particles to use
+        self.n_particles = 100          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        self.sigma = 0.05               # guess for how inaccurate lidar readings are in meters
+        self.sigma = 0.1                # guess for how inaccurate lidar readings are in meters
 
         # Setup pubs and subs
 
@@ -135,7 +135,6 @@ class ParticleFilter:
         theta = 0
         angles = []
         for particle in self.particle_cloud:
-            print particle.w
             x += particle.x * particle.w
             y += particle.y * particle.w
             v = [particle.w * math.cos(math.radians(particle.theta)), particle.w * math.sin(math.radians(particle.theta))]
@@ -268,7 +267,7 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        rad = 2 # meters
+        rad = 1.5 # meters
 
         self.particle_cloud = []
         self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
@@ -290,7 +289,7 @@ class ParticleFilter:
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        tot_weight = sum([particle.w for particle in self.particle_cloud])
+        tot_weight = sum([particle.w for particle in self.particle_cloud]) or 1
         for particle in self.particle_cloud:
             particle.w = particle.w/tot_weight;
 
@@ -309,7 +308,7 @@ class ParticleFilter:
                                           frame_id=self.map_frame),
                                   pose=particle.as_pose(),
                                   type=0,
-                                  scale=Vector3(x=particle.w*10,y=particle.w*5,z=particle.w*20),
+                                  scale=Vector3(x=particle.w*2,y=particle.w*1,z=particle.w*5),
                                   id=index,
                                   color=ColorRGBA(r=1,a=1))
             marker_array.append(marker)
