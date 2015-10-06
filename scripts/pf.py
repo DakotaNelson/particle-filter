@@ -88,14 +88,14 @@ class ParticleFilter:
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "base_scan"        # the topic where we will get laser scans from
 
-        self.n_particles = 100          # the number of particles to use
+        self.n_particles = 500          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
 
         self.laser_max_distance = 2.0   # maximum penalty to assess in the likelihood field model
 
-        self.sigma = 0.1                # guess for how inaccurate lidar readings are in meters
+        self.sigma = 0.08                # guess for how inaccurate lidar readings are in meters
 
         # Setup pubs and subs
 
@@ -169,9 +169,9 @@ class ParticleFilter:
             d = math.sqrt((delta[0]**2) + (delta[1]**2))
 
             particle.theta += r1 % 360
-            particle.x += d * math.cos(particle.theta) + normal(0,0.01)
-            particle.y += d * math.sin(particle.theta) + normal(0,0.01)
-            particle.theta += (delta[2] - r1 + normal(0,0.01)) % 360
+            particle.x += d * math.cos(particle.theta) + normal(0,0.1)
+            particle.y += d * math.sin(particle.theta) + normal(0,0.1)
+            particle.theta += (delta[2] - r1 + normal(0,0.1)) % 360
         # For added difficulty: Implement sample_motion_odometry (Prob Rob p 136)
 
     def map_calc_range(self,x,y,theta):
@@ -198,7 +198,8 @@ class ParticleFilter:
                 if csum >= choice:
                     # if the random choice fell within the particle's weight
                     newParticles.append(deepcopy(particle))
-        self.particles = newParticles
+                    break
+        self.particle_cloud = newParticles
 
     def update_particles_with_laser(self, msg):
         """ Updates the particle weights in response to the scan contained in the msg """
@@ -267,7 +268,7 @@ class ParticleFilter:
                       particle cloud around.  If this input is ommitted, the odometry will be used """
         if xy_theta == None:
             xy_theta = convert_pose_to_xy_and_theta(self.odom_pose.pose)
-        rad = 1.5 # meters
+        rad = 1 # meters
 
         self.particle_cloud = []
         self.particle_cloud.append(Particle(xy_theta[0], xy_theta[1], xy_theta[2]))
