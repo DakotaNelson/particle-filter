@@ -71,3 +71,11 @@ def angle_diff(a, b):
         return d1
     else:
         return d2
+
+def sum_vectors(vectors):
+    """Calculates the angle of the sum of vectors"""
+    tot_vector = np.sum(vectors, axis=0)
+    # sum vectors
+    angle = math.atan2(tot_vector[1],tot_vector[0])
+    # comes in radians for -pi to pi
+    return math.degrees(angle) + 180
